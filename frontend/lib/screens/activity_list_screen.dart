@@ -28,7 +28,36 @@ class ActivityListScreen extends StatefulWidget {
 }
 
 class _ActivityListScreenState extends State<ActivityListScreen> {
+  static const List<String> _typeOptions = <String>[
+    '全部',
+    '桌游',
+    '运动',
+    '小酌',
+    '旅行',
+    '电影',
+  ];
+  static const List<String> _priceOptions = <String>[
+    '全部',
+    '免费',
+    '0-50',
+    '50-100',
+    '100+',
+  ];
+  static const List<String> _timeOptions = <String>[
+    '全部',
+    '今天',
+    '本周',
+    '周末',
+  ];
+  static const List<String> _distanceOptions = <String>[
+    '不限',
+    '3km内',
+    '5km内',
+    '10km内',
+  ];
+
   final TextEditingController _searchController = TextEditingController();
+  List<ActivityItem> _allActivities = <ActivityItem>[];
   List<ActivityItem> _activities = <ActivityItem>[];
   bool _loading = true;
   String? _loadError;
@@ -38,6 +67,10 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
   Timer? _autoRefreshTimer;
   int _unreadCount = 0;
   bool _refreshingUnread = false;
+  String _selectedType = '全部';
+  String _selectedPrice = '全部';
+  String _selectedTime = '全部';
+  String _selectedDistance = '不限';
 
   @override
   void initState() {
@@ -76,11 +109,15 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         sortOrder: _sortOrder.isEmpty ? null : _sortOrder,
       );
       if (!mounted) return;
-      setState(() => _activities = list);
+      setState(() {
+        _allActivities = list;
+        _activities = _applyFilters(list);
+      });
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _loadError = error.message;
+        _allActivities = <ActivityItem>[];
         _activities = <ActivityItem>[];
       });
     } finally {
@@ -102,8 +139,86 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         sortOrder: _sortOrder.isEmpty ? null : _sortOrder,
       );
       if (!mounted) return;
-      setState(() => _activities = list);
+      setState(() {
+        _allActivities = list;
+        _activities = _applyFilters(list);
+      });
     } catch (_) {}
+  }
+
+  List<ActivityItem> _applyFilters(List<ActivityItem> source) {
+    return source.where((ActivityItem item) {
+      final String merged =
+          '${item.name} ${(item.description ?? '')}'.toLowerCase();
+      if (_selectedType != '全部' &&
+          !merged.contains(_selectedType.toLowerCase())) {
+        return false;
+      }
+      final num price = item.contractAmount;
+      if (_selectedPrice == '免费' && price > 0) {
+        return false;
+      }
+      if (_selectedPrice == '0-50' && (price < 0 || price > 50)) {
+        return false;
+      }
+      if (_selectedPrice == '50-100' && (price <= 50 || price > 100)) {
+        return false;
+      }
+      if (_selectedPrice == '100+' && price <= 100) {
+        return false;
+      }
+      final DateTime? time = DateTime.tryParse(item.activityDate);
+      if (_selectedTime != '全部' && time != null) {
+        final DateTime now = DateTime.now();
+        final DateTime today = DateTime(now.year, now.month, now.day);
+        final DateTime date = DateTime(time.year, time.month, time.day);
+        if (_selectedTime == '今天' && date != today) {
+          return false;
+        }
+        if (_selectedTime == '本周') {
+          final int diff = date.difference(today).inDays;
+          if (diff < 0 || diff > 6) {
+            return false;
+          }
+        }
+        if (_selectedTime == '周末' &&
+            date.weekday != DateTime.saturday &&
+            date.weekday != DateTime.sunday) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+  }
+
+  Future<void> _openFilterSheet() async {
+    final _HomeFilterSelection? result = await showModalBottomSheet<_HomeFilterSelection>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return _HomeFilterBottomSheet(
+          typeOptions: _typeOptions,
+          priceOptions: _priceOptions,
+          timeOptions: _timeOptions,
+          distanceOptions: _distanceOptions,
+          initialSelection: _HomeFilterSelection(
+            type: _selectedType,
+            price: _selectedPrice,
+            time: _selectedTime,
+            distance: _selectedDistance,
+          ),
+        );
+      },
+    );
+    if (result == null) return;
+    setState(() {
+      _selectedType = result.type;
+      _selectedPrice = result.price;
+      _selectedTime = result.time;
+      _selectedDistance = result.distance;
+      _activities = _applyFilters(_allActivities);
+    });
   }
 
   Future<void> _refreshUnreadCount() async {
@@ -543,9 +658,41 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         child: Text(widget.localization.tr('deleteRecord')),
       );
     }
-    return ElevatedButton(
-      onPressed: () => _joinActivity(activity),
-      child: Text(widget.localization.tr('joinNow')),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        gradient: const LinearGradient(
+          colors: <Color>[Color(0xFF6A5AE0), Color(0xFF9D50BB)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x336A5AE0),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: _ScaleTap(
+          onTap: () => _joinActivity(activity),
+          borderRadius: BorderRadius.circular(26),
+          child: SizedBox(
+            height: 42,
+            child: Center(
+              child: Text(
+                widget.localization.tr('joinNow'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -579,104 +726,189 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     );
   }
 
-  Widget _buildListContent() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_loadError != null) {
-      return ListView(
-        children: <Widget>[
-          const SizedBox(height: 90),
-          Center(
+  /*
+  Widget _buildHomeBody() {
+    final ActivityItem? featured = _activities.isNotEmpty ? _activities.first : null;
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[Color(0xFFF7F8FF), Color(0xFFF4F7FF), Color(0xFFFDFDFF)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: <Widget>[
+          SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Card(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: _HomeInspirationBanner(
+                featured: featured,
+                onJoin: featured == null ? null : () => _joinActivity(featured),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: '搜点什么？比如：夜爬 / 羽毛球 / 看电影',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      onSubmitted: (_) => _loadActivities(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 46,
+                    height: 46,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: const LinearGradient(
+                          colors: <Color>[
+                            Color(0xFF7160EF),
+                            Color(0xFF9E66F2),
+                          ],
+                        ),
+                        boxShadow: const <BoxShadow>[
+                          BoxShadow(
+                            color: Color(0x337160EF),
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: _openFilterSheet,
+                          child: const Icon(Icons.tune_rounded, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 46,
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: _loadActivities,
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        side: const BorderSide(color: Color(0xFFC8CCDF)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        backgroundColor: Colors.white,
+                      ),
+                      child: const Icon(
+                        Icons.search,
+                        size: 20,
+                        color: Color(0xFF636985),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 10, 16, 8),
+              child: Text(
+                '活动动态',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF303040),
+                ),
+              ),
+            ),
+          ),
+          if (_loading)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_loadError != null)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
                       const Icon(
-                        Icons.wifi_off_rounded,
-                        size: 42,
-                        color: Color(0xFF6B7280),
+                        Icons.cloud_off_rounded,
+                        size: 44,
+                        color: Color(0xFF8E8FA7),
                       ),
                       const SizedBox(height: 10),
                       const Text(
                         '活动加载失败',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Text(
                         _loadError!,
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: Color(0xFF6B7280)),
                       ),
-                      const SizedBox(height: 14),
-                      ElevatedButton.icon(
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
                         onPressed: _loadActivities,
-                        icon: const Icon(Icons.refresh),
+                        icon: const Icon(Icons.refresh_rounded),
                         label: const Text('重新加载'),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (_activities.isEmpty) {
-      return ListView(
-        children: const <Widget>[
-          SizedBox(height: 120),
-          Center(child: Text('暂无活动')),
-        ],
-      );
-    }
-
-    return ListView.builder(
-      itemCount: _activities.length,
-      itemBuilder: (BuildContext context, int index) {
-        final ActivityItem item = _activities[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  item.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+            )
+          else if (_activities.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Text(
+                  '暂时没有匹配到活动，换个关键词试试',
+                  style: TextStyle(color: Color(0xFF6B7280)),
                 ),
-                const SizedBox(height: 8),
-                Text(item.description ?? '无描述'),
-                const SizedBox(height: 10),
-                Text(
-                  '创建人: ${item.creatorName}  ·  契约金: ¥${item.contractAmount}  ·  已报名: ${item.approvedCount}人',
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '活动时间: ${item.activityDate}',
-                  style: const TextStyle(color: Color(0xFF6B7280)),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: <Widget>[
-                    Expanded(child: _buildAction(item)),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.push(
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate((
+                  BuildContext context,
+                  int index,
+                ) {
+                  final ActivityItem item = _activities[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _HomeActivityCard(
+                      activity: item,
+                      action: _buildAction(item),
+                      onChat: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
                           builder: (_) => ActivityChatScreen(
@@ -685,16 +917,185 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                           ),
                         ),
                       ),
-                      icon: const Icon(Icons.forum_outlined),
-                      label: const Text('交流'),
                     ),
-                  ],
+                  );
+                }, childCount: _activities.length),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+  */
+
+  Widget _buildHomeBody() {
+    final List<Widget> slivers = <Widget>[
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: _HomeBannerCarousel(
+            activities: _activities,
+            onJoin: _joinActivity,
+          ),
+        ),
+      ),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜点什么？比如：夜爬 / 羽毛球 / 看电影',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onSubmitted: (_) => _loadActivities(),
                 ),
-              ],
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 46,
+                height: 46,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: const LinearGradient(
+                      colors: <Color>[Color(0xFF7160EF), Color(0xFF9E66F2)],
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: _openFilterSheet,
+                      child: const Icon(Icons.tune_rounded, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 46,
+                height: 46,
+                child: OutlinedButton(
+                  onPressed: _loadActivities,
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    side: const BorderSide(color: Color(0xFFC8CCDF)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    backgroundColor: Colors.white,
+                  ),
+                  child: const Icon(
+                    Icons.search,
+                    size: 20,
+                    color: Color(0xFF636985),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 10, 16, 8),
+          child: Text(
+            '活动动态',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF303040),
             ),
           ),
-        );
-      },
+        ),
+      ),
+    ];
+
+    if (_loading) {
+      slivers.add(
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    } else if (_loadError != null) {
+      slivers.add(
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text(
+              _loadError!,
+              style: const TextStyle(color: Color(0xFF6B7280)),
+            ),
+          ),
+        ),
+      );
+    } else if (_activities.isEmpty) {
+      slivers.add(
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text(
+              '暂时没有匹配到活动，换个关键词试试',
+              style: TextStyle(color: Color(0xFF6B7280)),
+            ),
+          ),
+        ),
+      );
+    } else {
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (BuildContext context, int index) {
+                final ActivityItem item = _activities[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _HomeActivityCard(
+                    activity: item,
+                    action: _buildAction(item),
+                    onChat: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => ActivityChatScreen(
+                          activity: item,
+                          sessionController: widget.sessionController,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+              childCount: _activities.length,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[Color(0xFFF7F8FF), Color(0xFFF4F7FF), Color(0xFFFDFDFF)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: slivers,
+      ),
     );
   }
 
@@ -723,92 +1124,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         ],
       ),
       body: _bottomTab == 0
-          ? Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: <Color>[
-                    Color(0xFFF4F6FF),
-                    Color(0xFFECEFFF),
-                    Color(0xFFF8FAFC),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: Column(
-                children: <Widget>[
-                  const SizedBox(height: 4),
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        colors: <Color>[Color(0xFF6D5EF9), Color(0xFF8B80FF)],
-                      ),
-                      boxShadow: const <BoxShadow>[
-                        BoxShadow(
-                          color: Color(0x336D5EF9),
-                          blurRadius: 18,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          '今日灵感广场',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text('快速组局、立即报名、高效匹配同城搭子', style: TextStyle(color: Color(0xFFEDE9FE))),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    height: 94,
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
-                      scrollDirection: Axis.horizontal,
-                      children: const <Widget>[
-                        _HomeIdeaCard(title: '今日热门', sub: '同城桌游组局'),
-                        _HomeIdeaCard(title: '附近新局', sub: '3 公里内可达'),
-                        _HomeIdeaCard(title: '轻悬赏', sub: '跑腿与任务大厅'),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: const InputDecoration(
-                              hintText: '搜索活动名称或描述',
-                              prefixIcon: Icon(Icons.search),
-                            ),
-                            onSubmitted: (_) => _loadActivities(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: _loadActivities,
-                          child: const Text('查询'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(child: _buildListContent()),
-                ],
-              ),
-            )
+          ? _buildHomeBody()
           : _bottomTab == 1
               ? const PlazaScreen()
               : _bottomTab == 3
@@ -918,37 +1234,579 @@ class _PublishTile extends StatelessWidget {
   }
 }
 
-class _HomeIdeaCard extends StatelessWidget {
-  const _HomeIdeaCard({required this.title, required this.sub});
+class _HomeFilterSelection {
+  const _HomeFilterSelection({
+    required this.type,
+    required this.price,
+    required this.time,
+    required this.distance,
+  });
 
-  final String title;
-  final String sub;
+  final String type;
+  final String price;
+  final String time;
+  final String distance;
+}
+
+class _HomeBannerCarousel extends StatefulWidget {
+  const _HomeBannerCarousel({
+    required this.activities,
+    required this.onJoin,
+  });
+
+  final List<ActivityItem> activities;
+  final Function(ActivityItem) onJoin;
+
+  @override
+  State<_HomeBannerCarousel> createState() => _HomeBannerCarouselState();
+}
+
+class _HomeBannerCarouselState extends State<_HomeBannerCarousel> {
+  final PageController _controller = PageController();
+  int _index = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || widget.activities.isEmpty) return;
+      _index = (_index + 1) % widget.activities.length;
+      _controller.animateToPage(
+        _index,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.activities.isEmpty) return const SizedBox();
+
+    final int count = widget.activities.length.clamp(0, 5);
+    return Column(
+      children: <Widget>[
+        SizedBox(
+          height: 162,
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: count,
+            onPageChanged: (int i) => setState(() => _index = i),
+            itemBuilder: (_, int i) {
+              final ActivityItem item = widget.activities[i];
+              return _BannerCard(
+                activity: item,
+                onJoin: () => widget.onJoin(item),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List<Widget>.generate(
+            count,
+            (int i) => AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: _index == i ? 16 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: _index == i ? const Color(0xFF6A5AE0) : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BannerCard extends StatelessWidget {
+  const _BannerCard({required this.activity, required this.onJoin});
+
+  final ActivityItem activity;
+  final VoidCallback onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    final int joined = activity.approvedCount;
+    final int remain = (4 - joined).clamp(0, 4);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: <Color>[Color(0xFF6A5AE0), Color(0xFF8FD3F4), Color(0xFFF39BD5)],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            '🔥 今日推荐',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            activity.name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '还差 $remain 人成行',
+            style: const TextStyle(color: Colors.white70),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          Row(
+            children: <Widget>[
+              _AvatarStack(count: joined),
+              const Spacer(),
+              ElevatedButton(
+                onPressed: onJoin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF6A5AE0),
+                ),
+                child: const Text('加入'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarStack extends StatelessWidget {
+  const _AvatarStack({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final int showCount = count.clamp(0, 3);
+
+    return SizedBox(
+      width: 60,
+      height: 28,
+      child: Stack(
+        children: <Widget>[
+          ...List<Widget>.generate(showCount, (int i) {
+            return Positioned(
+              left: i * 18,
+              child: CircleAvatar(
+                radius: 12,
+                backgroundColor: Colors.white,
+                child: Text(
+                  '${i + 1}',
+                  style: const TextStyle(fontSize: 10),
+                ),
+              ),
+            );
+          }),
+          if (count > 3)
+            Positioned(
+              left: showCount * 18,
+              child: CircleAvatar(
+                radius: 12,
+                backgroundColor: Colors.grey.shade300,
+                child: Text(
+                  '+${count - 3}',
+                  style: const TextStyle(fontSize: 10),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeActivityCard extends StatelessWidget {
+  const _HomeActivityCard({
+    required this.activity,
+    required this.action,
+    required this.onChat,
+  });
+
+  final ActivityItem activity;
+  final Widget action;
+  final VoidCallback onChat;
+
+  @override
+  Widget build(BuildContext context) {
+    final int joined = activity.approvedCount;
+    final int remain = (4 - joined).clamp(0, 4);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            activity.name,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            activity.description ?? '这个局正在等你加入',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _AvatarStack(count: joined),
+              const SizedBox(width: 8),
+              Text('还差 $remain 人'),
+              const Spacer(),
+              Text('¥${activity.contractAmount}'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: action),
+              const SizedBox(width: 10),
+              OutlinedButton(
+                onPressed: onChat,
+                child: const Text('聊天'),
+              )
+            ],
+          )
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeFilterBottomSheet extends StatefulWidget {
+  const _HomeFilterBottomSheet({
+    required this.typeOptions,
+    required this.priceOptions,
+    required this.timeOptions,
+    required this.distanceOptions,
+    required this.initialSelection,
+  });
+
+  final List<String> typeOptions;
+  final List<String> priceOptions;
+  final List<String> timeOptions;
+  final List<String> distanceOptions;
+  final _HomeFilterSelection initialSelection;
+
+  @override
+  State<_HomeFilterBottomSheet> createState() => _HomeFilterBottomSheetState();
+}
+
+class _HomeFilterBottomSheetState extends State<_HomeFilterBottomSheet> {
+  late String _type;
+  late String _price;
+  late String _time;
+  late String _distance;
+
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.initialSelection.type;
+    _price = widget.initialSelection.price;
+    _time = widget.initialSelection.time;
+    _distance = widget.initialSelection.distance;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 150,
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
+      decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE1E4EE),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '筛选活动',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              _FilterSection(
+                title: '活动类型',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.typeOptions.map((String e) {
+                    return _GradientSelectChip(
+                      label: e,
+                      selected: _type == e,
+                      onTap: () => setState(() => _type = e),
+                    );
+                  }).toList(),
+                ),
+              ),
+              _FilterSection(
+                title: '价格区间',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.priceOptions.map((String e) {
+                    return _GradientSelectChip(
+                      label: e,
+                      selected: _price == e,
+                      onTap: () => setState(() => _price = e),
+                    );
+                  }).toList(),
+                ),
+              ),
+              _FilterSection(
+                title: '时间',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.timeOptions.map((String e) {
+                    return _GradientSelectChip(
+                      label: e,
+                      selected: _time == e,
+                      onTap: () => setState(() => _time = e),
+                    );
+                  }).toList(),
+                ),
+              ),
+              _FilterSection(
+                title: '距离',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.distanceOptions.map((String e) {
+                    return _GradientSelectChip(
+                      label: e,
+                      selected: _distance == e,
+                      onTap: () => setState(() => _distance = e),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: <Widget>[
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _type = widget.typeOptions.first;
+                        _price = widget.priceOptions.first;
+                        _time = widget.timeOptions.first;
+                        _distance = widget.distanceOptions.first;
+                      });
+                    },
+                    child: const Text('重置'),
+                  ),
+                  const Spacer(),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      gradient: const LinearGradient(
+                        colors: <Color>[Color(0xFF6A5AE0), Color(0xFF9D50BB)],
+                      ),
+                      boxShadow: const <BoxShadow>[
+                        BoxShadow(
+                          color: Color(0x336A5AE0),
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: _ScaleTap(
+                      onTap: () {
+                        Navigator.pop(
+                          context,
+                          _HomeFilterSelection(
+                            type: _type,
+                            price: _price,
+                            time: _time,
+                            distance: _distance,
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(24),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        child: Text(
+                          '确认',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterSection extends StatelessWidget {
+  const _FilterSection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
           Text(
             title,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF374151),
+            ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            sub,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
-          ),
+          const SizedBox(height: 8),
+          child,
         ],
+      ),
+    );
+  }
+}
+
+class _GradientSelectChip extends StatelessWidget {
+  const _GradientSelectChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: selected
+              ? const LinearGradient(
+                  colors: <Color>[Color(0xFF6A5AE0), Color(0xFFA855F7)],
+                )
+              : null,
+          color: selected ? null : const Color(0xFFF3F4F8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: selected ? Colors.white : const Color(0xFF555A6F),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScaleTap extends StatefulWidget {
+  const _ScaleTap({
+    required this.child,
+    required this.onTap,
+    required this.borderRadius,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final BorderRadius borderRadius;
+
+  @override
+  State<_ScaleTap> createState() => _ScaleTapState();
+}
+
+class _ScaleTapState extends State<_ScaleTap> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Material(
+          color: Colors.transparent,
+          child: Ink(
+            child: InkWell(
+              onTap: widget.onTap,
+              borderRadius: widget.borderRadius,
+              child: widget.child,
+            ),
+          ),
+        ),
       ),
     );
   }

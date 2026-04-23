@@ -21,10 +21,25 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const Color _textSecondary = Color(0xFF888888);
+  static const Color _fieldBg = Color(0xFFF5F6FA);
+  static const Color _pageTop = Color(0xFF6A5AE0);
+  static const Color _pageBottom = Color(0xFF8FD3F4);
+  static const Color _buttonStart = Color(0xFF6A5AE0);
+  static const Color _buttonEnd = Color(0xFF9D50BB);
+  static const BorderRadius _cardRadius = BorderRadius.all(Radius.circular(22));
+  static const BorderRadius _fieldRadius = BorderRadius.all(
+    Radius.circular(14),
+  );
+  static const BorderRadius _buttonRadius = BorderRadius.all(
+    Radius.circular(30),
+  );
+
   final TextEditingController _accountController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _loading = false;
   bool _agreed = false;
+  bool _showPassword = false;
 
   @override
   void dispose() {
@@ -291,173 +306,408 @@ class _LoginScreenState extends State<LoginScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  InputDecoration _fieldDecoration({
+    required String hint,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: _textSecondary, fontSize: 14),
+      prefixIcon: Icon(icon, color: const Color(0xFF667085)),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: _fieldBg,
+      border: OutlineInputBorder(
+        borderRadius: _fieldRadius,
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: _fieldRadius,
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: _fieldRadius,
+        borderSide: const BorderSide(color: Color(0xFF6A5AE0), width: 1.2),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      children: const <Widget>[
+        CircleAvatar(
+          radius: 34,
+          backgroundColor: Color(0x26FFFFFF),
+          child: Icon(Icons.groups_2_rounded, size: 34, color: Colors.white),
+        ),
+        SizedBox(height: 14),
+        Text(
+          '趣同行',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+        SizedBox(height: 6),
+        Text(
+          '找到你的同行搭子',
+          style: TextStyle(
+            color: Color(0xFFEAEAFF),
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAgreementRow(AppLocalization i18n) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Transform.scale(
+          scale: 0.9,
+          child: Checkbox(
+            value: _agreed,
+            activeColor: const Color(0xFF6A5AE0),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            onChanged: (bool? value) => setState(() => _agreed = value ?? false),
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: <Widget>[
+                Text(
+                  i18n.tr('agreementPrefix'),
+                  style: const TextStyle(color: _textSecondary, fontSize: 13),
+                ),
+                TextButton(
+                  onPressed: _showLegalSheet,
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    i18n.tr('userAgreement'),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF5E56E7),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  i18n.tr('and'),
+                  style: const TextStyle(color: _textSecondary, fontSize: 13),
+                ),
+                TextButton(
+                  onPressed: _showLegalSheet,
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    i18n.tr('legalDocs'),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF5E56E7),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSocialButton({
+    required VoidCallback onTap,
+    required Widget icon,
+    required String label,
+  }) {
+    return Column(
+      children: <Widget>[
+        InkWell(
+          onTap: _loading ? null : onTap,
+          borderRadius: BorderRadius.circular(28),
+          child: Ink(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFE4E7EC)),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Center(child: icon),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppLocalization i18n = widget.localization;
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: <Color>[Color(0xFFEFF3FF), Color(0xFFF8FAFC)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      body: Stack(
+        children: <Widget>[
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: <Color>[_pageTop, _pageBottom],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: <Widget>[
-              const SizedBox(height: 16),
-              const Text(
-                '趣同行',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+          Positioned(
+            top: -80,
+            right: -40,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0x22FFFFFF),
               ),
-              const SizedBox(height: 8),
-              Text(
-                i18n.tr('welcomeBack'),
-                style: TextStyle(color: Color(0xFF6B7280)),
+            ),
+          ),
+          Positioned(
+            top: 120,
+            left: -50,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0x1AFFFFFF),
               ),
-              const SizedBox(height: 20),
-              Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: <Widget>[
-                      TextField(
-                        controller: _accountController,
-                        decoration: InputDecoration(
-                          labelText: i18n.tr('usernameOrPhone'),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          labelText: i18n.tr('password'),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _loading ? null : _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(48),
-                          ),
-                          child: Text(
-                            _loading
-                                ? i18n.tr('loginProcessing')
-                                : i18n.tr('login'),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: <Widget>[
-                          Checkbox(
-                            value: _agreed,
-                            onChanged: (bool? value) =>
-                                setState(() => _agreed = value ?? false),
-                          ),
-                          Expanded(
-                            child: Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: <Widget>[
-                                Text(i18n.tr('agreementPrefix')),
-                                TextButton(
-                                  onPressed: _showLegalSheet,
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                    ),
-                                    minimumSize: Size.zero,
-                                  ),
-                                  child: Text(i18n.tr('userAgreement')),
-                                ),
-                                Text(i18n.tr('and')),
-                                TextButton(
-                                  onPressed: _showLegalSheet,
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                    ),
-                                    minimumSize: Size.zero,
-                                  ),
-                                  child: Text(i18n.tr('legalDocs')),
-                                ),
-                              ],
-                            ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 26, 20, 24),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 420),
+                builder: (BuildContext context, double value, Widget? child) {
+                  return Opacity(
+                    opacity: value,
+                    child: Transform.translate(
+                      offset: Offset(0, (1 - value) * 18),
+                      child: child,
+                    ),
+                  );
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    const SizedBox(height: 32),
+                    _buildHeader(),
+                    const SizedBox(height: 30),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: _cardRadius,
+                        boxShadow: const <BoxShadow>[
+                          BoxShadow(
+                            color: Color(0x24000000),
+                            blurRadius: 26,
+                            offset: Offset(0, 10),
                           ),
                         ],
                       ),
-                      TextButton(
-                        onPressed: () =>
-                            Navigator.pushNamed(context, '/register'),
-                        child: Text(i18n.tr('noAccountGoRegister')),
+                      child: Column(
+                        children: <Widget>[
+                          TextField(
+                            controller: _accountController,
+                            decoration: _fieldDecoration(
+                              hint: i18n.tr('usernameOrPhone'),
+                              icon: Icons.person_outline_rounded,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _passwordController,
+                            obscureText: !_showPassword,
+                            decoration: _fieldDecoration(
+                              hint: i18n.tr('password'),
+                              icon: Icons.lock_outline_rounded,
+                              suffixIcon: IconButton(
+                                splashRadius: 20,
+                                onPressed: () => setState(
+                                  () => _showPassword = !_showPassword,
+                                ),
+                                icon: Icon(
+                                  _showPassword
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  color: const Color(0xFF667085),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildAgreementRow(i18n),
+                          const SizedBox(height: 8),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            width: double.infinity,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              borderRadius: _buttonRadius,
+                              gradient: const LinearGradient(
+                                colors: <Color>[_buttonStart, _buttonEnd],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              boxShadow: const <BoxShadow>[
+                                BoxShadow(
+                                  color: Color(0x666A5AE0),
+                                  blurRadius: 14,
+                                  offset: Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: _buttonRadius,
+                                onTap: _loading ? null : _handleLogin,
+                                child: Center(
+                                  child: Text(
+                                    _loading
+                                        ? i18n.tr('loginProcessing')
+                                        : i18n.tr('login'),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: <Widget>[
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pushNamed(context, '/register'),
+                                child: Text(
+                                  '注册账号',
+                                  style: TextStyle(
+                                    color: const Color(0xFF5E56E7),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => _showMessage('忘记密码功能开发中'),
+                                child: const Text(
+                                  '忘记密码',
+                                  style: TextStyle(
+                                    color: _textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: const <Widget>[
+                        Expanded(child: Divider(color: Color(0x80FFFFFF))),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            '或使用以下方式登录',
+                            style: TextStyle(color: Colors.white, fontSize: 13),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: Color(0x80FFFFFF))),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: <Widget>[
+                        _buildSocialButton(
+                          onTap: _handleQqLogin,
+                          label: 'QQ',
+                          icon: const FaIcon(
+                            FontAwesomeIcons.qq,
+                            color: Color(0xFF12B7F5),
+                            size: 20,
+                          ),
+                        ),
+                        _buildSocialButton(
+                          onTap: _handleWechatLogin,
+                          label: '微信',
+                          icon: const FaIcon(
+                            FontAwesomeIcons.weixin,
+                            color: Color(0xFF07C160),
+                            size: 20,
+                          ),
+                        ),
+                        _buildSocialButton(
+                          onTap: _handleSmsLogin,
+                          label: '手机',
+                          icon: const Icon(
+                            Icons.phone_iphone_rounded,
+                            color: Color(0xFF6A5AE0),
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      '登录即代表你同意平台相关条款并授权必要服务权限',
+                      style: TextStyle(color: Color(0xDDEEF2FF), fontSize: 11.5),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                 ),
               ),
-              const SizedBox(height: 18),
-              Text(
-                i18n.tr('otherLoginMethods'),
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 10),
-              Column(
-                children: <Widget>[
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _loading ? null : _handleQqLogin,
-                      icon: const FaIcon(
-                        FontAwesomeIcons.qq,
-                        color: Color(0xFF12B7F5),
-                        size: 18,
-                      ),
-                      label: Text(i18n.tr('qq')),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _loading ? null : _handleWechatLogin,
-                      icon: const FaIcon(
-                        FontAwesomeIcons.weixin,
-                        color: Color(0xFF07C160),
-                        size: 18,
-                      ),
-                      label: Text(i18n.tr('wechat')),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _loading ? null : _handleSmsLogin,
-                      icon: const Icon(Icons.sms_outlined),
-                      label: Text(i18n.tr('phone')),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                i18n.tr('sdkHint'),
-                style: TextStyle(fontSize: 11.5, color: Color(0xFF6B7280)),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
