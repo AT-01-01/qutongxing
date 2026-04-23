@@ -164,6 +164,7 @@ class ParticipantItem {
     required this.id,
     required this.userId,
     required this.username,
+    this.avatar,
     required this.email,
     required this.phone,
     required this.status,
@@ -173,6 +174,7 @@ class ParticipantItem {
   final int id;
   final int userId;
   final String username;
+  final String? avatar;
   final String? email;
   final String? phone;
   final String status;
@@ -183,6 +185,7 @@ class ParticipantItem {
       id: json['id'] as int,
       userId: json['userId'] as int,
       username: (json['username'] ?? '') as String,
+      avatar: json['avatar'] as String?,
       email: json['email'] as String?,
       phone: json['phone'] as String?,
       status: (json['status'] ?? '') as String,

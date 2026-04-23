@@ -372,7 +372,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
 
   Future<bool> _confirmJoinFlow(ActivityItem activity) async {
     final AppLocalization i18n = widget.localization;
-    final String ruleText = _buildContractRuleText(activity);
+    final String ruleText = _buildContractRuleSummary(activity);
     final bool? agreed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -408,6 +408,40 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       ),
     );
     return paid == true;
+  }
+
+  bool _canOpenChat(ActivityItem activity) {
+    final int? userId = widget.sessionController.session?.userId;
+    if (userId == null) {
+      return false;
+    }
+    return activity.creatorId == userId || activity.joinStatus == 'approved';
+  }
+
+  void _openChat(ActivityItem activity) {
+    if (!_canOpenChat(activity)) {
+      _showMessage('加入并通过审核后，才能进入活动群聊');
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => ActivityChatScreen(
+          activity: activity,
+          sessionController: widget.sessionController,
+        ),
+      ),
+    ).then((_) => _refreshUnreadCount());
+  }
+
+  String _buildContractRuleSummary(ActivityItem activity) {
+    final String minuteRule =
+        '1. 活动开始前 ${activity.refundBeforeMinutes} 分钟内退出，返还 ${(activity.refundBeforeMinutesRate * 100).toStringAsFixed(0)}%';
+    final String hourRule =
+        '2. 活动前 ${activity.refundBeforeMinutes} 分钟到 ${activity.refundBeforeHours} 小时之间退出，返还 ${(activity.refundBeforeHoursRate * 100).toStringAsFixed(0)}%';
+    final String earlyRule =
+        '3. 活动前超过 ${activity.refundBeforeHours} 小时退出，返还 ${(activity.refundBeforeEarlyRate * 100).toStringAsFixed(0)}%';
+    return '契约规则：\n$minuteRule\n$hourRule\n$earlyRule';
   }
 
   String _buildContractRuleText(ActivityItem activity) {
@@ -908,15 +942,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                     child: _HomeActivityCard(
                       activity: item,
                       action: _buildAction(item),
-                      onChat: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => ActivityChatScreen(
-                            activity: item,
-                            sessionController: widget.sessionController,
-                          ),
-                        ),
-                      ),
+                      onChat: () => _openChat(item),
                     ),
                   );
                 }, childCount: _activities.length),
@@ -1126,7 +1152,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       body: _bottomTab == 0
           ? _buildHomeBody()
           : _bottomTab == 1
-              ? const PlazaScreen()
+              ? PlazaScreen(sessionController: widget.sessionController)
               : _bottomTab == 3
               ? MessageCenterScreen(
                   sessionController: widget.sessionController,
@@ -1582,58 +1608,35 @@ class _HomeFilterBottomSheetState extends State<_HomeFilterBottomSheet> {
               const SizedBox(height: 12),
               _FilterSection(
                 title: '活动类型',
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.typeOptions.map((String e) {
-                    return _GradientSelectChip(
-                      label: e,
-                      selected: _type == e,
-                      onTap: () => setState(() => _type = e),
-                    );
-                  }).toList(),
+                child: _LiquidSegmentedControl(
+                  options: widget.typeOptions,
+                  value: _type,
+                  onChanged: (String value) => setState(() => _type = value),
                 ),
               ),
               _FilterSection(
                 title: '价格区间',
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.priceOptions.map((String e) {
-                    return _GradientSelectChip(
-                      label: e,
-                      selected: _price == e,
-                      onTap: () => setState(() => _price = e),
-                    );
-                  }).toList(),
+                child: _LiquidSegmentedControl(
+                  options: widget.priceOptions,
+                  value: _price,
+                  onChanged: (String value) => setState(() => _price = value),
                 ),
               ),
               _FilterSection(
                 title: '时间',
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.timeOptions.map((String e) {
-                    return _GradientSelectChip(
-                      label: e,
-                      selected: _time == e,
-                      onTap: () => setState(() => _time = e),
-                    );
-                  }).toList(),
+                child: _LiquidSegmentedControl(
+                  options: widget.timeOptions,
+                  value: _time,
+                  onChanged: (String value) => setState(() => _time = value),
                 ),
               ),
               _FilterSection(
                 title: '距离',
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.distanceOptions.map((String e) {
-                    return _GradientSelectChip(
-                      label: e,
-                      selected: _distance == e,
-                      onTap: () => setState(() => _distance = e),
-                    );
-                  }).toList(),
+                child: _LiquidSegmentedControl(
+                  options: widget.distanceOptions,
+                  value: _distance,
+                  onChanged: (String value) =>
+                      setState(() => _distance = value),
                 ),
               ),
               const SizedBox(height: 10),
@@ -1729,42 +1732,127 @@ class _FilterSection extends StatelessWidget {
   }
 }
 
-class _GradientSelectChip extends StatelessWidget {
-  const _GradientSelectChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
+class _LiquidSegmentedControl extends StatelessWidget {
+  const _LiquidSegmentedControl({
+    required this.options,
+    required this.value,
+    required this.onChanged,
   });
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final List<String> options;
+  final String value;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: selected
-              ? const LinearGradient(
-                  colors: <Color>[Color(0xFF6A5AE0), Color(0xFFA855F7)],
-                )
-              : null,
-          color: selected ? null : const Color(0xFFF3F4F8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: selected ? Colors.white : const Color(0xFF555A6F),
-            fontWeight: FontWeight.w600,
+    final int rawIndex = options.indexOf(value);
+    final int selectedIndex = rawIndex < 0 ? 0 : rawIndex;
+    final double alignmentX = options.length == 1
+        ? 0
+        : -1 + (selectedIndex * 2 / (options.length - 1));
+
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double itemWidth = (constraints.maxWidth - 12) / options.length;
+        return Container(
+          height: 58,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F4FB),
+            borderRadius: BorderRadius.circular(28),
           ),
-        ),
-      ),
+          child: Stack(
+            children: <Widget>[
+              AnimatedAlign(
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeInOutCubic,
+                alignment: Alignment(alignmentX, 0),
+                child: _LiquidThumb(width: itemWidth),
+              ),
+              Row(
+                children: options.map((String option) {
+                  final bool selected = option == value;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => onChanged(option),
+                      behavior: HitTestBehavior.opaque,
+                      child: Center(
+                        child: AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 220),
+                          style: TextStyle(
+                            color: selected
+                                ? const Color(0xFF20163A)
+                                : const Color(0xFF6B7280),
+                            fontWeight: selected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                          child: Text(option),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LiquidThumb extends StatelessWidget {
+  const _LiquidThumb({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: width * 1.14, end: width),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutBack,
+      builder: (BuildContext context, double value, Widget? child) {
+        return SizedBox(
+          width: value,
+          height: 46,
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: <Color>[Color(0xFFFFD976), Color(0xFFFFA86B)],
+                    ),
+                    borderRadius: BorderRadius.circular(23),
+                    boxShadow: const <BoxShadow>[
+                      BoxShadow(
+                        color: Color(0x33FFB86B),
+                        blurRadius: 14,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 6,
+                top: 7,
+                bottom: 7,
+                child: Container(
+                  width: 14,
+                  decoration: BoxDecoration(
+                    color: const Color(0x33FFFFFF),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

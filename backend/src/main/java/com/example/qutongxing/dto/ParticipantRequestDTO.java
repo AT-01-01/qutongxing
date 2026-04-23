@@ -11,6 +11,7 @@ public class ParticipantRequestDTO {
     private Long id;
     private Long userId;
     private String username;
+    private String avatar;
     private String email;
     private String phone;
     private Long activityId;

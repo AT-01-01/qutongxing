@@ -467,6 +467,7 @@ public class ActivityAdvancedController {
         dto.setId(participant.getId());
         dto.setUserId(participant.getUser().getId());
         dto.setUsername(participant.getUser().getUsername());
+        dto.setAvatar(participant.getUser().getAvatar());
         dto.setEmail(participant.getUser().getEmail());
         dto.setPhone(participant.getUser().getPhone());
         dto.setActivityId(participant.getActivity().getId());
