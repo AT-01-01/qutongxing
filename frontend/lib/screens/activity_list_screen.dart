@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -8,6 +8,7 @@ import '../app_localization.dart';
 import '../models.dart';
 import '../services/api_service.dart';
 import '../session_controller.dart';
+import '../widgets/avatar_badge.dart';
 import 'activity_chat_screen.dart';
 import 'message_center_screen.dart';
 import 'payment_mock_screen.dart';
@@ -92,6 +93,18 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     _autoRefreshTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  int get _manageTodoCount {
+    final int? userId = widget.sessionController.session?.userId;
+    if (userId == null) return 0;
+    return _allActivities
+        .where((ActivityItem item) => item.creatorId == userId)
+        .fold<int>(
+          0,
+          (int sum, ActivityItem item) =>
+              sum + item.pendingCount + item.quitRequestedCount,
+        );
   }
 
   Future<void> _loadActivities() async {
@@ -445,6 +458,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     return '契约规则：\n$minuteRule\n$hourRule\n$earlyRule';
   }
 
+  // ignore: unused_element
   String _buildContractRuleText(ActivityItem activity) {
     final String part1 =
         '1. 活动开始~前${activity.refundBeforeMinutes}分钟：返还${(activity.refundBeforeMinutesRate * 100).toStringAsFixed(0)}%';
@@ -456,47 +470,92 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
   }
 
   void _showSortSheet() {
-    showModalBottomSheet<void>(
+    showGeneralDialog<void>(
       context: context,
-      builder: (BuildContext context) {
+      barrierDismissible: true,
+      barrierLabel: '排序',
+      barrierColor: const Color(0x22000000),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (BuildContext context, _, __) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                title: const Text('默认排序'),
-                onTap: () {
-                  setState(() {
-                    _sortBy = '';
-                    _sortOrder = '';
-                  });
-                  Navigator.pop(context);
-                  _loadActivities();
-                },
+          child: Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 52, 58, 0),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: 220,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: const <BoxShadow>[
+                      BoxShadow(
+                        color: Color(0x22000000),
+                        blurRadius: 18,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.sort_rounded),
+                        title: const Text('默认排序'),
+                        onTap: () {
+                          setState(() {
+                            _sortBy = '';
+                            _sortOrder = '';
+                          });
+                          Navigator.pop(context);
+                          _loadActivities();
+                        },
+                      ),
+                      ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.payments_outlined),
+                        title: const Text('契约金从高到低'),
+                        onTap: () {
+                          setState(() {
+                            _sortBy = 'contractAmount';
+                            _sortOrder = 'desc';
+                          });
+                          Navigator.pop(context);
+                          _loadActivities();
+                        },
+                      ),
+                      ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.event_available_outlined),
+                        title: const Text('活动时间从早到晚'),
+                        onTap: () {
+                          setState(() {
+                            _sortBy = 'activityDate';
+                            _sortOrder = 'asc';
+                          });
+                          Navigator.pop(context);
+                          _loadActivities();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              ListTile(
-                title: const Text('契约金从高到低'),
-                onTap: () {
-                  setState(() {
-                    _sortBy = 'contractAmount';
-                    _sortOrder = 'desc';
-                  });
-                  Navigator.pop(context);
-                  _loadActivities();
-                },
-              ),
-              ListTile(
-                title: const Text('活动时间从早到晚'),
-                onTap: () {
-                  setState(() {
-                    _sortBy = 'activityDate';
-                    _sortOrder = 'asc';
-                  });
-                  Navigator.pop(context);
-                  _loadActivities();
-                },
-              ),
-            ],
+            ),
+          ),
+        );
+      },
+      transitionBuilder:
+          (BuildContext context, Animation<double> animation, _, Widget child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1).animate(animation),
+            alignment: Alignment.topRight,
+            child: child,
           ),
         );
       },
@@ -1092,15 +1151,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                   child: _HomeActivityCard(
                     activity: item,
                     action: _buildAction(item),
-                    onChat: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => ActivityChatScreen(
-                          activity: item,
-                          sessionController: widget.sessionController,
-                        ),
-                      ),
-                    ),
+                    onChat: () => _openChat(item),
                   ),
                 );
               },
@@ -1140,12 +1191,40 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         actions: <Widget>[
           if (_bottomTab == 0 || _bottomTab == 1) ...<Widget>[
             IconButton(onPressed: _showSortSheet, icon: const Icon(Icons.sort)),
-            IconButton(
-              onPressed: () => Navigator.pushNamed(
-                context,
-                '/manage',
-              ).then((_) => _loadActivities()),
-              icon: const Icon(Icons.manage_accounts),
+            Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                IconButton(
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    '/manage',
+                  ).then((_) => _loadActivities()),
+                  icon: const Icon(Icons.manage_accounts),
+                ),
+                if (_manageTodoCount > 0)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      constraints:
+                          const BoxConstraints(minWidth: 18, minHeight: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _manageTodoCount > 99 ? '99' : '$_manageTodoCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ],
@@ -1407,7 +1486,7 @@ class _BannerCard extends StatelessWidget {
           const Spacer(),
           Row(
             children: <Widget>[
-              _AvatarStack(count: joined),
+              _AvatarStack(activity: activity),
               const Spacer(),
               ElevatedButton(
                 onPressed: onJoin,
@@ -1425,46 +1504,85 @@ class _BannerCard extends StatelessWidget {
   }
 }
 
-class _AvatarStack extends StatelessWidget {
-  const _AvatarStack({required this.count});
+class _AvatarStack extends StatefulWidget {
+  const _AvatarStack({required this.activity});
 
-  final int count;
+  final ActivityItem activity;
+
+  @override
+  State<_AvatarStack> createState() => _AvatarStackState();
+}
+
+class _AvatarStackState extends State<_AvatarStack> {
+  final ScrollController _controller = ScrollController();
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!_controller.hasClients) return;
+      final double max = _controller.position.maxScrollExtent;
+      if (max <= 0) return;
+      final double next =
+          _controller.offset >= max - 4 ? 0 : _controller.offset + 42;
+      _controller.animateTo(
+        next,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final int showCount = count.clamp(0, 3);
+    final int count = widget.activity.approvedCount;
+    final List<String> names = widget.activity.approvedParticipantNames;
+    final List<String> avatars = widget.activity.approvedParticipantAvatars;
+    final int showCount = math.max(count, names.length).clamp(0, 12).toInt();
+    if (showCount == 0) {
+      return const SizedBox(
+        width: 86,
+        height: 32,
+        child: Center(
+          child: Text(
+            '等待报名',
+            style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
-      width: 60,
-      height: 28,
-      child: Stack(
-        children: <Widget>[
-          ...List<Widget>.generate(showCount, (int i) {
-            return Positioned(
-              left: i * 18,
-              child: CircleAvatar(
-                radius: 12,
-                backgroundColor: Colors.white,
-                child: Text(
-                  '${i + 1}',
-                  style: const TextStyle(fontSize: 10),
-                ),
-              ),
-            );
-          }),
-          if (count > 3)
-            Positioned(
-              left: showCount * 18,
-              child: CircleAvatar(
-                radius: 12,
-                backgroundColor: Colors.grey.shade300,
-                child: Text(
-                  '+${count - 3}',
-                  style: const TextStyle(fontSize: 10),
-                ),
-              ),
+      width: 116,
+      height: 34,
+      child: ListView.separated(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: showCount,
+        separatorBuilder: (_, __) => const SizedBox(width: 4),
+        itemBuilder: (BuildContext context, int index) {
+          final String name =
+              index < names.length ? names[index] : '成员${index + 1}';
+          final String? avatar = index < avatars.length ? avatars[index] : null;
+          return Tooltip(
+            message: name,
+            child: AvatarBadge(
+              name: name,
+              avatarId: avatar,
+              radius: 15,
+              showRing: true,
             ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -1518,7 +1636,7 @@ class _HomeActivityCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              _AvatarStack(count: joined),
+              _AvatarStack(activity: activity),
               const SizedBox(width: 8),
               Text('还差 $remain 人'),
               const Spacer(),
@@ -1832,51 +1950,65 @@ class _ViscousSegmentedControlState extends State<ViscousSegmentedControl>
         const double height = 50;
         final double itemWidth = (totalWidth - 8) / widget.options.length;
         final double currentAlignX = _positionAnimation.value;
-        return Container(
-          height: height,
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.circular(height / 2),
-          ),
-          child: Stack(
-            children: <Widget>[
-              Align(
-                alignment: Alignment(currentAlignX, 0),
-                child: CustomPaint(
-                  size: Size(itemWidth, height - 8),
-                  painter: DropletPainter(
-                    viscosity: viscosity,
-                    direction: dragDistance.sign,
+        void selectByDx(double dx) {
+          final int index = ((dx - 4) / itemWidth)
+              .round()
+              .clamp(0, widget.options.length - 1);
+          widget.onChanged(widget.options[index]);
+        }
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragUpdate: (DragUpdateDetails details) {
+            selectByDx(details.localPosition.dx);
+          },
+          child: Container(
+            height: height,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(height / 2),
+            ),
+            child: Stack(
+              children: <Widget>[
+                Align(
+                  alignment: Alignment(currentAlignX, 0),
+                  child: CustomPaint(
+                    size: Size(itemWidth, height - 8),
+                    painter: DropletPainter(
+                      viscosity: viscosity,
+                      direction: dragDistance.sign,
+                    ),
                   ),
                 ),
-              ),
-              Row(
-                children: widget.options.map((String option) {
-                  final bool selected = option == widget.value;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => widget.onChanged(option),
-                      behavior: HitTestBehavior.opaque,
-                      child: Center(
-                        child: AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeInOut,
-                          style: TextStyle(
-                            color: selected
-                                ? const Color(0xFF20163A)
-                                : const Color(0xFF6B7280),
-                            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                            fontSize: 14,
+                Row(
+                  children: widget.options.map((String option) {
+                    final bool selected = option == widget.value;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => widget.onChanged(option),
+                        behavior: HitTestBehavior.opaque,
+                        child: Center(
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
+                            style: TextStyle(
+                              color: selected
+                                  ? const Color(0xFF20163A)
+                                  : const Color(0xFF6B7280),
+                              fontWeight:
+                                  selected ? FontWeight.w800 : FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                            child: Text(option),
                           ),
-                          child: Text(option),
                         ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
           ),
         );
       },

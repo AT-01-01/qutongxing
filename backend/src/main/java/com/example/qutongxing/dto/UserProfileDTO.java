@@ -8,6 +8,7 @@ public class UserProfileDTO {
     private String username;
     private String displayName;
     private String gender;
+    private Boolean realNameVerified;
     private String bio;
     private String city;
     private String address;

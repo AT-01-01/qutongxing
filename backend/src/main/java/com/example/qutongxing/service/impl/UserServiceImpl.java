@@ -108,8 +108,11 @@ public class UserServiceImpl implements UserService {
         if (dto.getDisplayName() != null) {
             user.setDisplayName(dto.getDisplayName().trim());
         }
-        if (dto.getGender() != null) {
+        if (dto.getGender() != null && !Boolean.TRUE.equals(user.getRealNameVerified())) {
             user.setGender(dto.getGender().trim());
+        }
+        if (dto.getRealNameVerified() != null) {
+            user.setRealNameVerified(dto.getRealNameVerified());
         }
         if (dto.getBio() != null) {
             user.setBio(dto.getBio().trim());
@@ -168,6 +171,7 @@ public class UserServiceImpl implements UserService {
         dto.setUsername(user.getUsername());
         dto.setDisplayName(user.getDisplayName());
         dto.setGender(user.getGender());
+        dto.setRealNameVerified(Boolean.TRUE.equals(user.getRealNameVerified()));
         dto.setBio(user.getBio());
         dto.setCity(user.getCity());
         dto.setAddress(user.getAddress());

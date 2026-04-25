@@ -33,6 +33,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late String _gender;
   late String _city;
   String? _avatarId;
+  late bool _realNameVerified;
   bool _saving = false;
 
   @override
@@ -52,6 +53,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         : '男';
     _city = widget.initialProfile.city ?? '未设置';
     _avatarId = widget.initialProfile.avatar;
+    _realNameVerified = widget.initialProfile.realNameVerified;
   }
 
   @override
@@ -74,6 +76,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         bio: _bioController.text.trim(),
         city: _city,
         address: _addressController.text.trim(),
+        realNameVerified: _realNameVerified,
         avatar: _avatarId,
       );
       if (!mounted) return;
@@ -293,7 +296,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                                     child: Text('保密'),
                                   ),
                                 ],
-                                onChanged: (String? value) {
+                                onChanged: _realNameVerified
+                                    ? null
+                                    : (String? value) {
                                   if (value != null) {
                                     setState(() => _gender = value);
                                   }
@@ -301,6 +306,26 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                                 decoration: const InputDecoration(
                                   labelText: '性别',
                                   prefixIcon: Icon(Icons.wc_rounded),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                value: _realNameVerified,
+                                onChanged: (bool value) {
+                                  setState(() => _realNameVerified = value);
+                                },
+                                title: const Text('实名认证状态'),
+                                subtitle: Text(
+                                  _realNameVerified
+                                      ? '已实名，性别已按实名信息锁定'
+                                      : '未实名，性别可手动选择',
+                                ),
+                                secondary: Icon(
+                                  _realNameVerified
+                                      ? Icons.verified_user_rounded
+                                      : Icons.gpp_maybe_outlined,
+                                  color: const Color(0xFF6A5AE0),
                                 ),
                               ),
                               const SizedBox(height: 12),

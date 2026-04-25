@@ -469,6 +469,8 @@ public class ActivityAdvancedController {
         dto.setUsername(participant.getUser().getUsername());
         dto.setEmail(participant.getUser().getEmail());
         dto.setPhone(participant.getUser().getPhone());
+        dto.setGender(participant.getUser().getGender());
+        dto.setRealNameVerified(Boolean.TRUE.equals(participant.getUser().getRealNameVerified()));
         dto.setActivityId(participant.getActivity().getId());
         dto.setActivityName(participant.getActivity().getName());
         dto.setStatus(participant.getStatus());

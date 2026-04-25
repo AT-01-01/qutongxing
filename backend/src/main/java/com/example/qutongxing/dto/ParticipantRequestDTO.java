@@ -13,6 +13,8 @@ public class ParticipantRequestDTO {
     private String username;
     private String email;
     private String phone;
+    private String gender;
+    private Boolean realNameVerified;
     private Long activityId;
     private String activityName;
     private String status;

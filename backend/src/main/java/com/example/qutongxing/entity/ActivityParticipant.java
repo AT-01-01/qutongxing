@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "qtx_activity_participants")
@@ -52,6 +53,12 @@ public class ActivityParticipant {
 
     @Column(name = "last_location_address", length = 255)
     private String lastLocationAddress;
+
+    @Column(name = "paid_amount", precision = 10, scale = 2)
+    private BigDecimal paidAmount;
+
+    @Column(name = "refunded_amount", precision = 10, scale = 2)
+    private BigDecimal refundedAmount = BigDecimal.ZERO;
 
     @PrePersist
     protected void onCreate() {

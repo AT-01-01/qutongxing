@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class ActivityResponseDTO {
@@ -30,4 +31,6 @@ public class ActivityResponseDTO {
     private BigDecimal lateArrivalPenaltyRate;
     private Integer checkinDistanceMeters;
     private Boolean allowMemberDirectMessage;
+    private List<String> approvedParticipantAvatars;
+    private List<String> approvedParticipantNames;
 }

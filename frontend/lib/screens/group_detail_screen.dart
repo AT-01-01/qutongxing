@@ -67,6 +67,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               ? _creatorProfile!.displayName!
               : (_creatorProfile!.username),
           avatar: _creatorProfile!.avatar,
+          gender: _creatorProfile!.gender,
+          realNameVerified: _creatorProfile!.realNameVerified,
           role: '群主',
         ),
       ..._members.map(
@@ -74,6 +76,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           userId: item.userId,
           name: item.username,
           avatar: item.avatar,
+          gender: item.gender,
+          realNameVerified: item.realNameVerified,
           role: item.userId == widget.currentUserId ? '我' : '群友',
         ),
       ),
@@ -89,7 +93,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('群详情')),
+      appBar: AppBar(
+        title: const Text('群详情'),
+        actions: <Widget>[
+          IconButton(
+            onPressed: _loadData,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -167,12 +179,16 @@ class _GroupMember {
     required this.userId,
     required this.name,
     required this.avatar,
+    required this.gender,
+    required this.realNameVerified,
     required this.role,
   });
 
   final int userId;
   final String name;
   final String? avatar;
+  final String? gender;
+  final bool realNameVerified;
   final String role;
 }
 
@@ -202,12 +218,23 @@ class _MemberCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            member.role,
+            member.realNameVerified ? '${member.role} · 已实名' : member.role,
             style: const TextStyle(
               color: Color(0xFF6B7280),
               fontSize: 12,
             ),
           ),
+          if (member.gender?.trim().isNotEmpty == true)
+            Text(
+              member.gender!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF6A5AE0),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
         ],
       ),
     );

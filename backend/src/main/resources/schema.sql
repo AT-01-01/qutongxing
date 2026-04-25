@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS qtx_users (
 
 ALTER TABLE qtx_users ADD COLUMN IF NOT EXISTS display_name VARCHAR(50);
 ALTER TABLE qtx_users ADD COLUMN IF NOT EXISTS gender VARCHAR(10);
+ALTER TABLE qtx_users ADD COLUMN IF NOT EXISTS real_name_verified BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE qtx_users ADD COLUMN IF NOT EXISTS bio VARCHAR(500);
 ALTER TABLE qtx_users ADD COLUMN IF NOT EXISTS city VARCHAR(100);
 ALTER TABLE qtx_users ADD COLUMN IF NOT EXISTS address VARCHAR(255);
@@ -58,6 +59,8 @@ ALTER TABLE qtx_activity_participants ADD COLUMN IF NOT EXISTS last_latitude DOU
 ALTER TABLE qtx_activity_participants ADD COLUMN IF NOT EXISTS last_longitude DOUBLE PRECISION;
 ALTER TABLE qtx_activity_participants ADD COLUMN IF NOT EXISTS last_location_at TIMESTAMP;
 ALTER TABLE qtx_activity_participants ADD COLUMN IF NOT EXISTS last_location_address VARCHAR(255);
+ALTER TABLE qtx_activity_participants ADD COLUMN IF NOT EXISTS paid_amount NUMERIC(10, 2);
+ALTER TABLE qtx_activity_participants ADD COLUMN IF NOT EXISTS refunded_amount NUMERIC(10, 2) DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS qtx_activity_chat_messages (
     id BIGSERIAL PRIMARY KEY,

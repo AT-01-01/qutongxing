@@ -4,8 +4,10 @@ import com.example.qutongxing.dto.ActivityCreateDTO;
 import com.example.qutongxing.dto.ActivityResponseDTO;
 import com.example.qutongxing.dto.ParticipantRequestDTO;
 import com.example.qutongxing.entity.Activity;
+import com.example.qutongxing.entity.ActivityChatMessage;
 import com.example.qutongxing.entity.ActivityParticipant;
 import com.example.qutongxing.entity.User;
+import com.example.qutongxing.repository.ActivityChatMessageRepository;
 import com.example.qutongxing.repository.ActivityParticipantRepository;
 import com.example.qutongxing.repository.ActivityRepository;
 import com.example.qutongxing.repository.UserRepository;
@@ -13,6 +15,9 @@ import com.example.qutongxing.service.ActivityService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
@@ -30,6 +35,9 @@ public class ActivityServiceImpl implements ActivityService {
 
     @Autowired
     private ActivityParticipantRepository participantRepository;
+
+    @Autowired
+    private ActivityChatMessageRepository chatMessageRepository;
 
     @Override
     public Activity createActivity(Long userId, ActivityCreateDTO dto) {
@@ -159,17 +167,12 @@ public class ActivityServiceImpl implements ActivityService {
     public List<ActivityResponseDTO> getActivitiesByParticipant(Long userId) {
         return participantRepository.findByUserId(userId)
                 .stream()
-                .filter(p -> "approved".equals(p.getStatus()))
-                .map(p -> convertToDTO(p.getActivity(), "approved"))
+                .map(p -> convertToDTO(p.getActivity(), p.getStatus()))
                 .collect(Collectors.toList());
     }
 
     @Override
     public void joinActivity(Long userId, Long activityId) {
-        if (participantRepository.existsByUserIdAndActivityId(userId, activityId)) {
-            throw new RuntimeException("您已参加此活动");
-        }
-
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
         Activity activity = activityRepository.findById(activityId)
@@ -178,11 +181,26 @@ public class ActivityServiceImpl implements ActivityService {
             throw new RuntimeException("不能报名自己创建的活动");
         }
 
+        ActivityParticipant existing = participantRepository.findByUserIdAndActivityId(userId, activityId).orElse(null);
+        if (existing != null) {
+            if ("rejected".equals(existing.getStatus())) {
+                existing.setStatus("pending");
+                existing.setQuitRequested(false);
+                existing.setPaidAmount(activity.getContractAmount());
+                existing.setRefundedAmount(BigDecimal.ZERO);
+                participantRepository.save(existing);
+                return;
+            }
+            throw new RuntimeException("您已参加此活动");
+        }
+
         ActivityParticipant participant = new ActivityParticipant();
         participant.setUser(user);
         participant.setActivity(activity);
         participant.setAttended(false);
         participant.setStatus("pending");
+        participant.setPaidAmount(activity.getContractAmount());
+        participant.setRefundedAmount(BigDecimal.ZERO);
 
         participantRepository.save(participant);
     }
@@ -238,6 +256,7 @@ public class ActivityServiceImpl implements ActivityService {
 
         participant.setStatus("approved");
         participantRepository.save(participant);
+        sendSystemMessage(participant.getActivity(), "报名已通过：" + participant.getUser().getUsername() + " 已加入活动。");
     }
 
     @Override
@@ -249,7 +268,13 @@ public class ActivityServiceImpl implements ActivityService {
             throw new RuntimeException("活动ID不匹配");
         }
 
+        BigDecimal refund = participant.getPaidAmount() == null
+                ? participant.getActivity().getContractAmount()
+                : participant.getPaidAmount();
+        sendSystemMessage(participant.getActivity(), "报名未通过：" + participant.getUser().getUsername()
+                + " 的申请已拒绝，已退还 " + money(refund) + " 积分。");
         participant.setStatus("rejected");
+        participant.setRefundedAmount(refund);
         participantRepository.save(participant);
     }
 
@@ -259,6 +284,11 @@ public class ActivityServiceImpl implements ActivityService {
                 .orElseThrow(() -> new RuntimeException("您没有报名此活动"));
 
         if ("pending".equals(participant.getStatus()) || "rejected".equals(participant.getStatus())) {
+            BigDecimal refund = participant.getPaidAmount() == null
+                    ? participant.getActivity().getContractAmount()
+                    : participant.getPaidAmount();
+            sendSystemMessage(participant.getActivity(), participant.getUser().getUsername()
+                    + " 已取消报名申请，已退还 " + money(refund) + " 积分。");
             participantRepository.delete(participant);
             return;
         }
@@ -296,6 +326,9 @@ public class ActivityServiceImpl implements ActivityService {
             throw new RuntimeException("该用户没有申请退出");
         }
 
+        BigDecimal refund = calculateRefundAmount(participant);
+        sendSystemMessage(participant.getActivity(), participant.getUser().getUsername()
+                + " 的离队申请已通过，按规则退还 " + money(refund) + " 积分。");
         participantRepository.delete(participant);
     }
 
@@ -314,6 +347,8 @@ public class ActivityServiceImpl implements ActivityService {
 
         participant.setQuitRequested(false);
         participantRepository.save(participant);
+        sendSystemMessage(participant.getActivity(), participant.getUser().getUsername()
+                + " 的离队申请未通过，仍保留在活动中。");
     }
 
     private Map<Long, String> getParticipantStatusMap(Long userId) {
@@ -348,6 +383,18 @@ public class ActivityServiceImpl implements ActivityService {
         dto.setLateArrivalPenaltyRate(activity.getLateArrivalPenaltyRate());
         dto.setCheckinDistanceMeters(activity.getCheckinDistanceMeters());
         dto.setAllowMemberDirectMessage(activity.getAllowMemberDirectMessage());
+        List<ActivityParticipant> approvedParticipants =
+                participantRepository.findByActivityIdAndStatus(activity.getId(), "approved");
+        dto.setApprovedParticipantAvatars(approvedParticipants.stream()
+                .limit(12)
+                .map(p -> p.getUser().getAvatar())
+                .collect(Collectors.toList()));
+        dto.setApprovedParticipantNames(approvedParticipants.stream()
+                .limit(12)
+                .map(p -> p.getUser().getDisplayName() != null && !p.getUser().getDisplayName().isBlank()
+                        ? p.getUser().getDisplayName()
+                        : p.getUser().getUsername())
+                .collect(Collectors.toList()));
 
         if (activity.getImage() != null && activity.getImage().length > 0) {
             dto.setImageBase64(Base64.getEncoder().encodeToString(activity.getImage()));
@@ -367,11 +414,48 @@ public class ActivityServiceImpl implements ActivityService {
         dto.setUsername(participant.getUser().getUsername());
         dto.setEmail(participant.getUser().getEmail());
         dto.setPhone(participant.getUser().getPhone());
+        dto.setGender(participant.getUser().getGender());
+        dto.setRealNameVerified(Boolean.TRUE.equals(participant.getUser().getRealNameVerified()));
         dto.setActivityId(participant.getActivity().getId());
         dto.setActivityName(participant.getActivity().getName());
         dto.setStatus(participant.getStatus());
         dto.setQuitRequested(participant.getQuitRequested());
         dto.setJoinedAt(participant.getJoinedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         return dto;
+    }
+
+    private BigDecimal calculateRefundAmount(ActivityParticipant participant) {
+        Activity activity = participant.getActivity();
+        BigDecimal paid = participant.getPaidAmount() == null ? activity.getContractAmount() : participant.getPaidAmount();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime start = activity.getActivityDate();
+        long minutesBefore = java.time.Duration.between(now, start).toMinutes();
+        BigDecimal rate;
+        if (minutesBefore < 0) {
+            rate = BigDecimal.ZERO;
+        } else if (minutesBefore <= activity.getRefundBeforeMinutes()) {
+            rate = activity.getRefundBeforeMinutesRate();
+        } else if (minutesBefore <= activity.getRefundBeforeHours() * 60L) {
+            rate = activity.getRefundBeforeHoursRate();
+        } else {
+            rate = activity.getRefundBeforeEarlyRate();
+        }
+        return paid.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void sendSystemMessage(Activity activity, String content) {
+        ActivityChatMessage message = new ActivityChatMessage();
+        message.setActivity(activity);
+        message.setSender(activity.getCreator());
+        message.setContent(content);
+        message.setMessageType("system");
+        chatMessageRepository.save(message);
+    }
+
+    private String money(BigDecimal value) {
+        if (value == null) {
+            return "0.00";
+        }
+        return value.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 }

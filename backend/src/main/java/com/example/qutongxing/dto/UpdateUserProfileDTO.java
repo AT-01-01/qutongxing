@@ -9,6 +9,7 @@ public class UpdateUserProfileDTO {
     private Long userId;
     private String displayName;
     private String gender;
+    private Boolean realNameVerified;
     private String bio;
     private String city;
     private String address;

@@ -147,14 +147,21 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
         return;
       }
 
-      final Position pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
+      Position? pos = await Geolocator.getLastKnownPosition();
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.bestForNavigation,
+          timeLimit: const Duration(seconds: 15),
+        );
+      } catch (_) {
+        if (pos == null) rethrow;
+      }
+      final Position resolvedPosition = pos;
       await ApiService.instance.shareLocation(
         activityId: widget.activity.id,
         userId: userId,
-        latitude: pos.latitude,
-        longitude: pos.longitude,
+        latitude: resolvedPosition.latitude,
+        longitude: resolvedPosition.longitude,
       );
       await _loadLocations();
       await ApiService.instance.autoCheckin(
@@ -179,6 +186,9 @@ class _ActivityChatScreenState extends State<ActivityChatScreen> {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.deniedForever) {
+      await Geolocator.openAppSettings();
     }
     return permission;
   }

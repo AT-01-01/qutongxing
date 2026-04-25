@@ -39,6 +39,9 @@ public class User {
     @Column(length = 10)
     private String gender;
 
+    @Column(name = "real_name_verified", nullable = false)
+    private Boolean realNameVerified = false;
+
     @Column(length = 500)
     private String bio;
 

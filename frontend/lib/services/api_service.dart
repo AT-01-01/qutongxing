@@ -252,6 +252,8 @@ class ApiService {
     required String bio,
     required String city,
     required String address,
+    bool? realNameVerified,
+    String? avatar,
   }) async {
     try {
       final Response<dynamic> res = await _dio.put<dynamic>(
@@ -263,6 +265,8 @@ class ApiService {
           'bio': bio,
           'city': city,
           'address': address,
+          if (realNameVerified != null) 'realNameVerified': realNameVerified,
+          if (avatar != null) 'avatar': avatar,
         },
       );
       final Map<String, dynamic> data =

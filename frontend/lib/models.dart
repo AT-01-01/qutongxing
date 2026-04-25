@@ -50,6 +50,7 @@ class UserProfile {
     required this.username,
     this.displayName,
     this.gender,
+    this.realNameVerified = false,
     this.bio,
     this.city,
     this.address,
@@ -62,6 +63,7 @@ class UserProfile {
   final String username;
   final String? displayName;
   final String? gender;
+  final bool realNameVerified;
   final String? bio;
   final String? city;
   final String? address;
@@ -75,6 +77,7 @@ class UserProfile {
       username: (json['username'] ?? '') as String,
       displayName: json['displayName'] as String?,
       gender: json['gender'] as String?,
+      realNameVerified: (json['realNameVerified'] ?? false) as bool,
       bio: json['bio'] as String?,
       city: json['city'] as String?,
       address: json['address'] as String?,
@@ -108,6 +111,8 @@ class ActivityItem {
     this.lateArrivalPenaltyRate = 0.2,
     this.checkinDistanceMeters = 120,
     this.allowMemberDirectMessage = true,
+    this.approvedParticipantAvatars = const <String>[],
+    this.approvedParticipantNames = const <String>[],
   });
 
   final int id;
@@ -131,6 +136,8 @@ class ActivityItem {
   final num lateArrivalPenaltyRate;
   final int checkinDistanceMeters;
   final bool allowMemberDirectMessage;
+  final List<String> approvedParticipantAvatars;
+  final List<String> approvedParticipantNames;
 
   factory ActivityItem.fromJson(Map<String, dynamic> json) {
     return ActivityItem(
@@ -155,6 +162,14 @@ class ActivityItem {
       lateArrivalPenaltyRate: (json['lateArrivalPenaltyRate'] ?? 0.2) as num,
       checkinDistanceMeters: (json['checkinDistanceMeters'] ?? 120) as int,
       allowMemberDirectMessage: (json['allowMemberDirectMessage'] ?? true) as bool,
+      approvedParticipantAvatars:
+          ((json['approvedParticipantAvatars'] as List<dynamic>?) ?? <dynamic>[])
+              .whereType<String>()
+              .toList(),
+      approvedParticipantNames:
+          ((json['approvedParticipantNames'] as List<dynamic>?) ?? <dynamic>[])
+              .whereType<String>()
+              .toList(),
     );
   }
 }
@@ -168,6 +183,8 @@ class ParticipantItem {
     required this.phone,
     required this.status,
     required this.quitRequested,
+    this.gender,
+    this.realNameVerified = false,
   });
 
   final int id;
@@ -177,6 +194,8 @@ class ParticipantItem {
   final String? phone;
   final String status;
   final bool quitRequested;
+  final String? gender;
+  final bool realNameVerified;
 
   factory ParticipantItem.fromJson(Map<String, dynamic> json) {
     return ParticipantItem(
@@ -187,6 +206,8 @@ class ParticipantItem {
       phone: json['phone'] as String?,
       status: (json['status'] ?? '') as String,
       quitRequested: (json['quitRequested'] ?? false) as bool,
+      gender: json['gender'] as String?,
+      realNameVerified: (json['realNameVerified'] ?? false) as bool,
     );
   }
 }
