@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1549,23 +1550,19 @@ class _HomeFilterBottomSheet extends StatefulWidget {
     required this.distanceOptions,
     required this.initialSelection,
   });
-
   final List<String> typeOptions;
   final List<String> priceOptions;
   final List<String> timeOptions;
   final List<String> distanceOptions;
   final _HomeFilterSelection initialSelection;
-
   @override
   State<_HomeFilterBottomSheet> createState() => _HomeFilterBottomSheetState();
 }
-
 class _HomeFilterBottomSheetState extends State<_HomeFilterBottomSheet> {
   late String _type;
   late String _price;
   late String _time;
   late String _distance;
-
   @override
   void initState() {
     super.initState();
@@ -1574,74 +1571,50 @@ class _HomeFilterBottomSheetState extends State<_HomeFilterBottomSheet> {
     _time = widget.initialSelection.time;
     _distance = widget.initialSelection.distance;
   }
-
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 20,
+            offset: Offset(0, -5),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Center(
                 child: Container(
-                  width: 44,
-                  height: 4,
+                  width: 48,
+                  height: 5,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE1E4EE),
+                    color: const Color(0xFFE5E7EB),
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              const Text(
-                '筛选活动',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 12),
-              _FilterSection(
-                title: '活动类型',
-                child: _LiquidSegmentedControl(
-                  options: widget.typeOptions,
-                  value: _type,
-                  onChanged: (String value) => setState(() => _type = value),
-                ),
-              ),
-              _FilterSection(
-                title: '价格区间',
-                child: _LiquidSegmentedControl(
-                  options: widget.priceOptions,
-                  value: _price,
-                  onChanged: (String value) => setState(() => _price = value),
-                ),
-              ),
-              _FilterSection(
-                title: '时间',
-                child: _LiquidSegmentedControl(
-                  options: widget.timeOptions,
-                  value: _time,
-                  onChanged: (String value) => setState(() => _time = value),
-                ),
-              ),
-              _FilterSection(
-                title: '距离',
-                child: _LiquidSegmentedControl(
-                  options: widget.distanceOptions,
-                  value: _distance,
-                  onChanged: (String value) =>
-                      setState(() => _distance = value),
-                ),
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 20),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
+                  const Text(
+                    '\u7b5b\u9009\u6d3b\u52a8\u5c40',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1F2937),
+                    ),
+                  ),
                   TextButton(
                     onPressed: () {
                       setState(() {
@@ -1651,49 +1624,94 @@ class _HomeFilterBottomSheetState extends State<_HomeFilterBottomSheet> {
                         _distance = widget.distanceOptions.first;
                       });
                     },
-                    child: const Text('重置'),
-                  ),
-                  const Spacer(),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: const LinearGradient(
-                        colors: <Color>[Color(0xFF6A5AE0), Color(0xFF9D50BB)],
-                      ),
-                      boxShadow: const <BoxShadow>[
-                        BoxShadow(
-                          color: Color(0x336A5AE0),
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF6D5EF9),
                     ),
-                    child: _ScaleTap(
-                      onTap: () {
-                        Navigator.pop(
-                          context,
-                          _HomeFilterSelection(
-                            type: _type,
-                            price: _price,
-                            time: _time,
-                            distance: _distance,
-                          ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(24),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        child: Text(
-                          '确认',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
+                    child: const Text(
+                      '\u91cd\u7f6e',
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 20),
+              _FilterSection(
+                title: '\u6d3b\u52a8\u7c7b\u578b',
+                child: ViscousSegmentedControl(
+                  options: widget.typeOptions,
+                  value: _type,
+                  onChanged: (String value) => setState(() => _type = value),
+                ),
+              ),
+              _FilterSection(
+                title: '\u4ef7\u683c\u533a\u95f4 (\u00a5)',
+                child: ViscousSegmentedControl(
+                  options: widget.priceOptions,
+                  value: _price,
+                  onChanged: (String value) => setState(() => _price = value),
+                ),
+              ),
+              _FilterSection(
+                title: '\u65f6\u95f4',
+                child: ViscousSegmentedControl(
+                  options: widget.timeOptions,
+                  value: _time,
+                  onChanged: (String value) => setState(() => _time = value),
+                ),
+              ),
+              _FilterSection(
+                title: '\u8ddd\u79bb',
+                child: ViscousSegmentedControl(
+                  options: widget.distanceOptions,
+                  value: _distance,
+                  onChanged: (String value) => setState(() => _distance = value),
+                ),
+              ),
+              const SizedBox(height: 24),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    colors: <Color>[Color(0xFF6A5AE0), Color(0xFF9D50BB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0x4D6A5AE0),
+                      blurRadius: 15,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: _ScaleTap(
+                  onTap: () {
+                    Navigator.pop(
+                      context,
+                      _HomeFilterSelection(
+                        type: _type,
+                        price: _price,
+                        time: _time,
+                        distance: _distance,
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: double.infinity,
+                    height: 54,
+                    alignment: Alignment.center,
+                    child: const Text(
+                      '\u786e \u8ba4',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -1702,7 +1720,6 @@ class _HomeFilterBottomSheetState extends State<_HomeFilterBottomSheet> {
     );
   }
 }
-
 class _FilterSection extends StatelessWidget {
   const _FilterSection({required this.title, required this.child});
 
@@ -1732,61 +1749,125 @@ class _FilterSection extends StatelessWidget {
   }
 }
 
-class _LiquidSegmentedControl extends StatelessWidget {
-  const _LiquidSegmentedControl({
+class ViscousSegmentedControl extends StatefulWidget {
+  const ViscousSegmentedControl({
+    super.key,
     required this.options,
     required this.value,
     required this.onChanged,
   });
-
   final List<String> options;
   final String value;
   final ValueChanged<String> onChanged;
-
+  @override
+  State<ViscousSegmentedControl> createState() => _ViscousSegmentedControlState();
+}
+class _ViscousSegmentedControlState extends State<ViscousSegmentedControl>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Tween<double> _positionTween;
+  late Animation<double> _positionAnimation;
+  @override
+  void initState() {
+    super.initState();
+    final int initialIndex = widget.options.indexOf(widget.value);
+    final double initialAlignmentX = _getAlignmentX(initialIndex < 0 ? 0 : initialIndex);
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _positionTween = Tween<double>(
+      begin: initialAlignmentX,
+      end: initialAlignmentX,
+    );
+    _positionAnimation = _buildPositionAnimation();
+  }
+  @override
+  void didUpdateWidget(covariant ViscousSegmentedControl oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value) {
+      final int newIndex = widget.options.indexOf(widget.value);
+      final double newAlignmentX = _getAlignmentX(newIndex < 0 ? 0 : newIndex);
+      _positionTween = Tween<double>(
+        begin: _positionAnimation.value,
+        end: newAlignmentX,
+      );
+      _positionAnimation = _buildPositionAnimation();
+      _controller
+        ..reset()
+        ..forward();
+    }
+  }
+  Animation<double> _buildPositionAnimation() {
+    return _positionTween.animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    )..addListener(() {
+        setState(() {});
+      });
+  }
+  double _getAlignmentX(int index) {
+    if (widget.options.length <= 1) {
+      return 0;
+    }
+    return -1 + (index * 2 / (widget.options.length - 1));
+  }
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
-    final int rawIndex = options.indexOf(value);
-    final int selectedIndex = rawIndex < 0 ? 0 : rawIndex;
-    final double alignmentX = options.length == 1
-        ? 0
-        : -1 + (selectedIndex * 2 / (options.length - 1));
-
+    final double rawProgress = _controller.view.value;
+    final double dragDistance = _positionTween.end! - _positionTween.begin!;
+    double viscosity = math.sin(rawProgress * math.pi);
+    if (_controller.isCompleted ||
+        _controller.isDismissed ||
+        dragDistance.abs() < 0.01) {
+      viscosity = 0;
+    }
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final double itemWidth = (constraints.maxWidth - 12) / options.length;
+        final double totalWidth = constraints.maxWidth;
+        const double height = 50;
+        final double itemWidth = (totalWidth - 8) / widget.options.length;
+        final double currentAlignX = _positionAnimation.value;
         return Container(
-          height: 58,
-          padding: const EdgeInsets.all(6),
+          height: height,
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: const Color(0xFFF2F4FB),
-            borderRadius: BorderRadius.circular(28),
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(height / 2),
           ),
           child: Stack(
             children: <Widget>[
-              AnimatedAlign(
-                duration: const Duration(milliseconds: 320),
-                curve: Curves.easeInOutCubic,
-                alignment: Alignment(alignmentX, 0),
-                child: _LiquidThumb(width: itemWidth),
+              Align(
+                alignment: Alignment(currentAlignX, 0),
+                child: CustomPaint(
+                  size: Size(itemWidth, height - 8),
+                  painter: DropletPainter(
+                    viscosity: viscosity,
+                    direction: dragDistance.sign,
+                  ),
+                ),
               ),
               Row(
-                children: options.map((String option) {
-                  final bool selected = option == value;
+                children: widget.options.map((String option) {
+                  final bool selected = option == widget.value;
                   return Expanded(
                     child: GestureDetector(
-                      onTap: () => onChanged(option),
+                      onTap: () => widget.onChanged(option),
                       behavior: HitTestBehavior.opaque,
                       child: Center(
                         child: AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 220),
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeInOut,
                           style: TextStyle(
                             color: selected
                                 ? const Color(0xFF20163A)
                                 : const Color(0xFF6B7280),
-                            fontWeight: selected
-                                ? FontWeight.w800
-                                : FontWeight.w600,
-                            fontSize: 13,
+                            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                            fontSize: 14,
                           ),
                           child: Text(option),
                         ),
@@ -1802,61 +1883,115 @@ class _LiquidSegmentedControl extends StatelessWidget {
     );
   }
 }
-
-class _LiquidThumb extends StatelessWidget {
-  const _LiquidThumb({required this.width});
-
-  final double width;
-
+class DropletPainter extends CustomPainter {
+  DropletPainter({
+    required this.viscosity,
+    required this.direction,
+  });
+  final double viscosity;
+  final double direction;
   @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: width * 1.14, end: width),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutBack,
-      builder: (BuildContext context, double value, Widget? child) {
-        return SizedBox(
-          width: value,
-          height: 46,
-          child: Stack(
-            children: <Widget>[
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: <Color>[Color(0xFFFFD976), Color(0xFFFFA86B)],
-                    ),
-                    borderRadius: BorderRadius.circular(23),
-                    boxShadow: const <BoxShadow>[
-                      BoxShadow(
-                        color: Color(0x33FFB86B),
-                        blurRadius: 14,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 6,
-                top: 7,
-                bottom: 7,
-                child: Container(
-                  width: 14,
-                  decoration: BoxDecoration(
-                    color: const Color(0x33FFFFFF),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..shader = const LinearGradient(
+        colors: <Color>[Color(0xFFFFD976), Color(0xFFFFA86B)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ).createShader(Offset.zero & size)
+      ..style = PaintingStyle.fill;
+    final Path shadowPath = Path();
+    final RRect shadowRect = RRect.fromRectAndRadius(
+      Offset(0, 3) & Size(size.width, size.height),
+      Radius.circular(size.height / 2),
     );
+    shadowPath.addRRect(shadowRect);
+    canvas.drawShadow(shadowPath, const Color(0x33FFB86B), 8, false);
+    final Path path = Path();
+    final double w = size.width;
+    final double h = size.height;
+    final double centerY = h / 2;
+    final double radius = h / 2;
+    if (viscosity.abs() < 0.001) {
+      path.addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
+    } else {
+      const double maxStretch = 16;
+      final double headOffset = 2 * viscosity * direction;
+      final double trailOffset = -maxStretch * viscosity * direction;
+      final Offset topLeft = Offset(radius + headOffset, 0);
+      final Offset bottomLeft = Offset(radius + headOffset, h);
+      final Offset topRight = Offset(w - radius + headOffset, 0);
+      final Offset bottomRight = Offset(w - radius + headOffset, h);
+      if (direction > 0) {
+        final Offset trailTip = Offset(headOffset + trailOffset, centerY);
+        path.moveTo(topRight.dx, topRight.dy);
+        path.arcToPoint(bottomRight, radius: Radius.circular(radius));
+        path.lineTo(bottomLeft.dx, bottomLeft.dy);
+        path.cubicTo(
+          bottomLeft.dx - radius * 0.5,
+          bottomLeft.dy,
+          trailTip.dx + radius * 0.2,
+          centerY + radius * 0.5,
+          trailTip.dx,
+          trailTip.dy,
+        );
+        path.cubicTo(
+          trailTip.dx + radius * 0.2,
+          centerY - radius * 0.5,
+          topLeft.dx - radius * 0.5,
+          topLeft.dy,
+          topLeft.dx,
+          topLeft.dy,
+        );
+        path.close();
+      } else {
+        final Offset trailTip = Offset(w + headOffset + trailOffset, centerY);
+        path.moveTo(topLeft.dx, topLeft.dy);
+        path.arcToPoint(
+          bottomLeft,
+          radius: Radius.circular(radius),
+          clockwise: false,
+        );
+        path.lineTo(bottomRight.dx, bottomRight.dy);
+        path.cubicTo(
+          bottomRight.dx + radius * 0.5,
+          bottomRight.dy,
+          trailTip.dx - radius * 0.2,
+          centerY + radius * 0.5,
+          trailTip.dx,
+          trailTip.dy,
+        );
+        path.cubicTo(
+          trailTip.dx - radius * 0.2,
+          centerY - radius * 0.5,
+          topRight.dx + radius * 0.5,
+          topRight.dy,
+          topRight.dx,
+          topRight.dy,
+        );
+        path.close();
+      }
+    }
+    canvas.drawPath(path, paint);
+    final Paint lightPaint = Paint()
+      ..color = const Color(0x33FFFFFF)
+      ..style = PaintingStyle.fill;
+    final RRect lightRect = RRect.fromRectAndRadius(
+      Offset(size.width - 16, 8) & const Size(10, 10),
+      const Radius.circular(5),
+    );
+    canvas.save();
+    canvas.translate(2 * viscosity * direction, 0);
+    canvas.drawRRect(lightRect, lightPaint);
+    canvas.restore();
+  }
+  @override
+  bool shouldRepaint(covariant DropletPainter oldDelegate) {
+    return oldDelegate.viscosity != viscosity ||
+        oldDelegate.direction != direction;
   }
 }
-
 class _ScaleTap extends StatefulWidget {
   const _ScaleTap({
     required this.child,
