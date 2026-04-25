@@ -12,7 +12,7 @@ server:
 spring:
   datasource:
     # 使用独立业务库 qutongxing，避免与其他项目表结构互相影响。
-    url: jdbc:postgresql://1.14.181.94:5210/qutongxing
+    url: jdbc:postgresql://127.0.0.1:5210/qutongxing
     username: Admin
     password: Admin
     driver-class-name: org.postgresql.Driver
