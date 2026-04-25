@@ -109,7 +109,7 @@ class _ActivityBucketScreenState extends State<ActivityBucketScreen> {
                                 title: Text(item.name),
                                 subtitle: Text(
                                   '活动时间: ${item.activityDate}\n'
-                                  '创建人: ${item.creatorName} · 契约金: ¥${item.contractAmount}',
+                                  '创建人: ${item.creatorName} · 参与积分: ${item.contractAmount}',
                                 ),
                                 isThreeLine: true,
                                 trailing: const Icon(Icons.chevron_right),

@@ -20,7 +20,7 @@ public class ActivityCreateDTO {
 
     private byte[] image;
 
-    @NotNull(message = "契约金不能为空")
+    @NotNull(message = "活动积分不能为空")
     private BigDecimal contractAmount;
 
     private Integer refundBeforeMinutes;

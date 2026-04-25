@@ -96,7 +96,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     }
     if (_nameController.text.trim().isEmpty ||
         _amountController.text.trim().isEmpty) {
-      _showMessage('活动名称和契约金不能为空');
+      _showMessage('活动名称和参与积分不能为空');
       return;
     }
 
@@ -233,8 +233,8 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                         decimal: true,
                       ),
                       decoration: const InputDecoration(
-                        labelText: '契约金',
-                        prefixIcon: Icon(Icons.paid_outlined),
+                        labelText: '参与积分',
+                        prefixIcon: Icon(Icons.stars_rounded),
                       ),
                     ),
                     const SizedBox(height: 12),

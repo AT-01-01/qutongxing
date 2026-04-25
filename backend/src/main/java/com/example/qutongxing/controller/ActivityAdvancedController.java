@@ -342,17 +342,17 @@ public class ActivityAdvancedController {
         if (now.isBefore(start.minusHours(activity.getRefundBeforeHours()))) {
             rate = safeRate(activity.getRefundBeforeEarlyRate(), BigDecimal.ONE);
             rule = "before_three_hours_earlier";
-            message = "活动前" + activity.getRefundBeforeHours() + "小时以前申请，返还" + percentText(rate) + "契约金";
+            message = "活动前" + activity.getRefundBeforeHours() + "小时以前申请，返还" + percentText(rate) + "积分";
         } else if (now.isBefore(start.minusMinutes(activity.getRefundBeforeMinutes()))) {
             rate = safeRate(activity.getRefundBeforeHoursRate(), new BigDecimal("0.80"));
             rule = "before_ten_minutes_to_three_hours";
             message = "活动前" + activity.getRefundBeforeMinutes() + "分钟到前" + activity.getRefundBeforeHours()
-                    + "小时申请，返还" + percentText(rate) + "契约金";
+                    + "小时申请，返还" + percentText(rate) + "积分";
         } else if (now.isBefore(start)) {
             rate = safeRate(activity.getRefundBeforeMinutesRate(), new BigDecimal("0.50"));
             rule = "start_to_before_ten_minutes";
             message = "活动开始到开始前" + activity.getRefundBeforeMinutes()
-                    + "分钟申请，返还" + percentText(rate) + "契约金";
+                    + "分钟申请，返还" + percentText(rate) + "积分";
         } else {
             LocalDateTime graceEnd = start.plusHours(activity.getLateArrivalWindowHours());
             if (Boolean.TRUE.equals(participant.getAttended())
@@ -362,12 +362,12 @@ public class ActivityAdvancedController {
                 rate = BigDecimal.ONE.subtract(penaltyRate);
                 rule = "arrived_within_window";
                 message = "活动开始后" + activity.getLateArrivalWindowHours()
-                        + "小时内到达，扣除" + percentText(penaltyRate) + "契约金";
+                        + "小时内到达，扣除" + percentText(penaltyRate) + "积分";
             } else {
                 rate = BigDecimal.ZERO;
                 rule = "no_show_after_start";
                 long waitHours = Duration.between(start, now).toHours();
-                message = "活动开始后已等待" + Math.max(waitHours, 0) + "小时，未满足返还条件，不返还契约金";
+                message = "活动开始后已等待" + Math.max(waitHours, 0) + "小时，未满足返还条件，不返还积分";
             }
         }
 

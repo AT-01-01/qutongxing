@@ -33,7 +33,7 @@ class ApiService {
   // 若真机调试无法访问 localhost，请改成电脑局域网 IP。
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8086/api',
+    defaultValue: 'http://1.14.181.94:8086/api',
   );
   static const int _maxRetryCount = 3;
   Dio _dio = Dio();

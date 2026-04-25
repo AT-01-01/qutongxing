@@ -38,7 +38,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     '旅行',
     '电影',
   ];
-  static const List<String> _priceOptions = <String>[
+  static const List<String> _scoreOptions = <String>[
     '全部',
     '免费',
     '0-50',
@@ -168,17 +168,17 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
           !merged.contains(_selectedType.toLowerCase())) {
         return false;
       }
-      final num price = item.contractAmount;
-      if (_selectedPrice == '免费' && price > 0) {
+      final num score = item.contractAmount;
+      if (_selectedPrice == '免费' && score > 0) {
         return false;
       }
-      if (_selectedPrice == '0-50' && (price < 0 || price > 50)) {
+      if (_selectedPrice == '0-50' && (score < 0 || score > 50)) {
         return false;
       }
-      if (_selectedPrice == '50-100' && (price <= 50 || price > 100)) {
+      if (_selectedPrice == '50-100' && (score <= 50 || score > 100)) {
         return false;
       }
-      if (_selectedPrice == '100+' && price <= 100) {
+      if (_selectedPrice == '100+' && score <= 100) {
         return false;
       }
       final DateTime? time = DateTime.tryParse(item.activityDate);
@@ -213,7 +213,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       builder: (BuildContext context) {
         return _HomeFilterBottomSheet(
           typeOptions: _typeOptions,
-          priceOptions: _priceOptions,
+          priceOptions: _scoreOptions,
           timeOptions: _timeOptions,
           distanceOptions: _distanceOptions,
           initialSelection: _HomeFilterSelection(
@@ -287,7 +287,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     }
     final bool confirmed = await _confirmJoinFlow(activity);
     if (!confirmed) {
-      _showMessage(widget.localization.tr('payCancelled'));
+      _showMessage('本次未消耗积分，你可以稍后再决定');
       return;
     }
     try {
@@ -295,7 +295,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         activityId: activity.id,
         userId: userId,
       );
-      _showMessage(widget.localization.tr('paySuccess'));
+      _showMessage('积分确认完成，报名申请已提交');
       await _loadActivities();
     } on ApiException catch (error) {
       _showBlockingAlert(title: '提示', content: error.message);
@@ -321,9 +321,9 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             title: const Text('退出规则确认'),
             content: Text(
               '${preview.message}\n\n'
-              '预计返还: ¥${preview.refundAmount}\n'
-              '扣除金额: ¥${preview.penaltyAmount}\n\n'
-              '确认后将进入支付确认页。',
+              '预计返还: ${preview.refundAmount} 积分\n'
+              '扣除积分: ${preview.penaltyAmount}\n\n'
+              '确认后将进入积分确认页。',
             ),
             actions: <Widget>[
               TextButton(
@@ -346,12 +346,11 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
         MaterialPageRoute<bool>(
           builder: (_) => PaymentMockScreen(
             activity: activity,
-            localization: widget.localization,
           ),
         ),
       );
       if (paid != true) {
-        _showMessage('已取消退出申请支付确认');
+        _showMessage('本次未处理退出申请');
         return;
       }
       await ApiService.instance.requestQuitWithConfirm(
@@ -386,14 +385,14 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
 
   Future<bool> _confirmJoinFlow(ActivityItem activity) async {
     final AppLocalization i18n = widget.localization;
-    final String ruleText = _buildContractRuleSummary(activity);
+    final String ruleText = _buildScoreRuleSummary(activity);
     final bool? agreed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(i18n.tr('confirmJoinTitle')),
           content: Text(
-            '${i18n.tr('confirmJoinContent')}\n\n'
+            '确认报名这个活动吗？本次会先确认消耗积分，再提交报名申请。\n\n'
             '$ruleText',
           ),
           actions: <Widget>[
@@ -403,7 +402,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(i18n.tr('goToPay')),
+              child: const Text('去确认积分'),
             ),
           ],
         );
@@ -417,7 +416,6 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       MaterialPageRoute<bool>(
         builder: (_) => PaymentMockScreen(
           activity: activity,
-          localization: i18n,
         ),
       ),
     );
@@ -448,25 +446,14 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
     ).then((_) => _refreshUnreadCount());
   }
 
-  String _buildContractRuleSummary(ActivityItem activity) {
+  String _buildScoreRuleSummary(ActivityItem activity) {
     final String minuteRule =
-        '1. 活动开始前 ${activity.refundBeforeMinutes} 分钟内退出，返还 ${(activity.refundBeforeMinutesRate * 100).toStringAsFixed(0)}%';
+        '1. 活动开始前 ${activity.refundBeforeMinutes} 分钟内退出，返还 ${(activity.refundBeforeMinutesRate * 100).toStringAsFixed(0)}% 的积分';
     final String hourRule =
-        '2. 活动前 ${activity.refundBeforeMinutes} 分钟到 ${activity.refundBeforeHours} 小时之间退出，返还 ${(activity.refundBeforeHoursRate * 100).toStringAsFixed(0)}%';
+        '2. 活动前 ${activity.refundBeforeMinutes} 分钟到 ${activity.refundBeforeHours} 小时之间退出，返还 ${(activity.refundBeforeHoursRate * 100).toStringAsFixed(0)}% 的积分';
     final String earlyRule =
-        '3. 活动前超过 ${activity.refundBeforeHours} 小时退出，返还 ${(activity.refundBeforeEarlyRate * 100).toStringAsFixed(0)}%';
-    return '契约规则：\n$minuteRule\n$hourRule\n$earlyRule';
-  }
-
-  // ignore: unused_element
-  String _buildContractRuleText(ActivityItem activity) {
-    final String part1 =
-        '1. 活动开始~前${activity.refundBeforeMinutes}分钟：返还${(activity.refundBeforeMinutesRate * 100).toStringAsFixed(0)}%';
-    final String part2 =
-        '2. 前${activity.refundBeforeMinutes}分钟~前${activity.refundBeforeHours}小时：返还${(activity.refundBeforeHoursRate * 100).toStringAsFixed(0)}%';
-    final String part3 =
-        '3. 前${activity.refundBeforeHours}小时以前：返还${(activity.refundBeforeEarlyRate * 100).toStringAsFixed(0)}%';
-    return '契约规则：\n$part1\n$part2\n$part3';
+        '3. 活动前超过 ${activity.refundBeforeHours} 小时退出，返还 ${(activity.refundBeforeEarlyRate * 100).toStringAsFixed(0)}% 的积分';
+    return '积分规则：\n$minuteRule\n$hourRule\n$earlyRule';
   }
 
   void _showSortSheet() {
@@ -517,7 +504,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                       ListTile(
                         dense: true,
                         leading: const Icon(Icons.payments_outlined),
-                        title: const Text('契约金从高到低'),
+                        title: const Text('积分从高到低'),
                         onTap: () {
                           setState(() {
                             _sortBy = 'contractAmount';
@@ -795,7 +782,52 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          content: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE4E8F3)),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(
+                  color: Color(0x16000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: <Color>[Color(0xFF6A5AE0), Color(0xFF8FD3F4)],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: Color(0xFF1F2937),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(12),
         ),
@@ -1640,7 +1672,7 @@ class _HomeActivityCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text('还差 $remain 人'),
               const Spacer(),
-              Text('¥${activity.contractAmount}'),
+              Text('${activity.contractAmount} 积分'),
             ],
           ),
           const SizedBox(height: 12),
@@ -1762,7 +1794,7 @@ class _HomeFilterBottomSheetState extends State<_HomeFilterBottomSheet> {
                 ),
               ),
               _FilterSection(
-                title: '\u4ef7\u683c\u533a\u95f4 (\u00a5)',
+                title: '\u79ef\u5206\u533a\u95f4',
                 child: ViscousSegmentedControl(
                   options: widget.priceOptions,
                   value: _price,
